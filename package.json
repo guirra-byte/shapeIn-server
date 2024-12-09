@@ -3,19 +3,21 @@
     "dev": "tsx watch src/server.ts"
   },
   "dependencies": {
+    "@fastify/cors": "^10.0.1",
     "@ngrok/ngrok": "^1.4.1",
     "@prisma/client": "^6.0.0",
+    "dotenv": "^16.4.7",
     "fastify": "^5.1.0",
     "nanoid": "^3.3.6",
     "qrcode": "^1.5.4",
-    "qrcode-terminal": "^0.12.0",
     "redis": "^4.7.0",
+    "resend": "^4.0.1",
     "zod": "^3.23.8"
   },
   "devDependencies": {
+    "@types/dotenv": "^8.2.3",
     "@types/node": "^22.10.1",
     "@types/qrcode": "^1.5.5",
-    "@types/qrcode-terminal": "^0.12.2",
     "@types/redis": "^4.0.11",
     "@types/uuid": "^10.0.0",
     "prisma": "^6.0.0",
