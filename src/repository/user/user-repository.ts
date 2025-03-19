@@ -1,8 +1,9 @@
 import { User } from "../../types/user.interface";
+import { IFormRepository } from "./form-repository.interface";
 import { IUserRepository } from "./user-repository.interface";
 import { createClient, RedisClientType } from "redis";
 
-export class UserRepository implements IUserRepository {
+export class UserRepository implements IUserRepository, IFormRepository {
   protected client: RedisClientType;
 
   private static INSTANCE: UserRepository;
@@ -17,6 +18,15 @@ export class UserRepository implements IUserRepository {
       this.client = createClient();
       await this.client.connect();
     }
+  }
+
+  // Save form responses;
+  async set(key: string, answers: string): Promise<void> {
+    await this.client.set(key, answers);
+  }
+
+  async get(key: string): Promise<string> {
+    return await this.client.get(key);
   }
 
   async save(data: User): Promise<void> {
