@@ -13,18 +13,33 @@ import {
 import { CheckinHandler } from "./handlers/checkin.handler";
 import { LoginHandler } from "./handlers/auth/login-handlers";
 import { RefreshTokenHandler } from "./handlers/auth/refresh-token.handler";
+import { GoogleFormsWebhookHandler } from "./handlers/google-forms-webhook.handler";
 
 dotenv.config();
 
 const fastify = Fastify({ logger: true });
-fastify.register(fastifyQuerystring, {});
+fastify.register(fastifyQuerystring, { prefix: "/api" });
 fastify.register(fastifyCors, {
   origin: "*",
   credentials: true,
+  prefix: "/api",
 });
 
-const userRepository = UserRepository.instance;
 const sseNotifyHandler = new SseNotifyHandler();
+const userRepository = UserRepository.instance;
+
+const googleFormsWebhookHandler = new GoogleFormsWebhookHandler(
+  userRepository,
+  sseNotifyHandler
+);
+
+fastify.route({
+  url: "/api/webhook",
+  method: "POST",
+  handler: (request: FastifyRequest, reply: FastifyReply) =>
+    googleFormsWebhookHandler.handle(request, reply),
+});
+
 const addUserHandler = new AddUserBatchHandler(
   userRepository,
   sseNotifyHandler
