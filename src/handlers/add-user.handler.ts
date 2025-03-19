@@ -32,6 +32,7 @@ const genQrCode = async (data: { email: string; id: string }) => {
   };
 };
 
+// Handler should be used to save users that payment was made;
 export class AddUserBatchHandler {
   constructor(
     private db: IUserRepository,
