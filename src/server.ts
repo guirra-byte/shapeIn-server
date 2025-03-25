@@ -1,4 +1,8 @@
-import Fastify, { FastifyReply, FastifyRequest } from "fastify";
+import Fastify, {
+  FastifyReply,
+  FastifyRequest,
+  HookHandlerDoneFunction,
+} from "fastify";
 import ngrok from "@ngrok/ngrok";
 import fs from "node:fs";
 import fastifyCors from "@fastify/cors";
@@ -14,6 +18,7 @@ import { CheckinHandler } from "./handlers/checkin.handler";
 import { LoginHandler } from "./handlers/auth/login-handlers";
 import { RefreshTokenHandler } from "./handlers/auth/refresh-token.handler";
 import { GoogleFormsWebhookHandler } from "./handlers/google-forms-webhook.handler";
+import { AuthMiddleware } from "./middlewares/auth.middleware";
 
 dotenv.config();
 
@@ -21,7 +26,7 @@ const fastify = Fastify({ logger: true });
 fastify.register(fastifyQuerystring, { prefix: "/api" });
 fastify.register(fastifyCors, {
   origin: "*",
-  credentials: true,
+  credentials: false,
   prefix: "/api",
 });
 
@@ -33,11 +38,48 @@ const googleFormsWebhookHandler = new GoogleFormsWebhookHandler(
   sseNotifyHandler
 );
 
+const authMiddleware = new AuthMiddleware(userRepository);
+const authorizationPreHandler = async (
+  request: FastifyRequest,
+  reply: FastifyReply
+) => {
+  if (request.url !== "/api/webhook") {
+    const authHeader = request.headers.authorization;
+    if (!authHeader) {
+      reply.code(401).send({ error: "Unauthorized" });
+      return;
+    }
+
+    const isAuthorized = await authMiddleware.handle(request, reply);
+
+    if (isAuthorized instanceof Error) {
+      reply.code(401).send({ error: isAuthorized.message });
+      return;
+    }
+  }
+};
+
 fastify.route({
   url: "/api/webhook",
   method: "POST",
-  handler: (request: FastifyRequest, reply: FastifyReply) =>
-    googleFormsWebhookHandler.handle(request, reply),
+  preHandler: [
+    async (request: FastifyRequest, reply: FastifyReply) => {
+      const origin = request.headers["user-agent"];
+      const compatibleRegExp = /\(compatible; Google-Apps-Script; beanserver;/;
+      const originRegExp = /\+https:\/\/script\.google\.com;/;
+
+      if (
+        origin &&
+        (!compatibleRegExp.test(origin) || !originRegExp.test(origin))
+      ) {
+        return reply
+          .status(403)
+          .send({ message: "Unauthorized Webhook!" });
+      }
+    },
+  ],
+  handler: (request: FastifyRequest, reply: FastifyReply) => 
+  googleFormsWebhookHandler.handle(request, reply),
 });
 
 const addUserHandler = new AddUserBatchHandler(
@@ -48,6 +90,7 @@ const addUserHandler = new AddUserBatchHandler(
 fastify.route({
   url: "/checkin/add-user",
   method: "POST",
+  preHandler: [authorizationPreHandler],
   handler: async (request: FastifyRequest, reply: FastifyReply) =>
     addUserHandler.handle(request, reply),
 });
@@ -65,6 +108,7 @@ fastify.route({
     },
   },
   method: "GET",
+  preHandler: [authorizationPreHandler],
   handler: async (request: FastifyRequest, reply: FastifyReply) =>
     sseHandshakeHandler.execute(request, reply),
 });
@@ -82,6 +126,7 @@ fastify.route({
     },
   },
   method: "GET",
+  preHandler: [authorizationPreHandler],
   handler: async (request: FastifyRequest, reply: FastifyReply) =>
     checkinHandler.handle(request, reply),
 });
@@ -100,6 +145,7 @@ const refreshTokenHandler = new RefreshTokenHandler();
 fastify.route({
   url: "/auth/refresh",
   method: "GET",
+  preHandler: [authorizationPreHandler],
   handler: async (request: FastifyRequest, reply: FastifyReply) =>
     refreshTokenHandler.handle(request, reply),
 });

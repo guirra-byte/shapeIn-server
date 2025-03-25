@@ -2,7 +2,6 @@ import { FastifyReply, FastifyRequest } from "fastify";
 import { IUserRepository } from "../../repository/user/user-repository.interface";
 import z from "zod";
 import jwt from "jsonwebtoken";
-import {} from "bcrypt";
 
 const loginSchema = z.object({
   email: z.string().email(),
